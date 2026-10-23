@@ -1,0 +1,9 @@
+# generated at runtime — never commit
+bible-audio-cache/
+bible-data-cache/
+bible-server.log
+
+# OS / editor noise
+Thumbs.db
+Desktop.ini
+.DS_Store

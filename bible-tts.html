@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E8 Digital - Bible</title>
+<style>
+/* Theme tokens: follow the Hermes app when embedded, else follow OS light/dark.
+   Internal names (--x-*) never collide with injected app vars. */
+:root{
+  --x-bg:var(--background,#f6f7f9);
+  --x-card:var(--card,#ffffff);
+  --x-card2:#eef0f4;
+  --x-fg:var(--foreground,#22272f);
+  --x-mut:var(--muted-foreground,#555c68);
+  --x-acc:var(--accent,#3b6ef0);
+  --x-accfg:var(--accent-foreground,#ffffff);
+  --x-bd:var(--border,#d6dbe3);
+  --x-errbg:#fdecec; --x-errbd:#f0bcbc; --x-errfg:#8c1d18;
+  --serif:Georgia,'Times New Roman',serif;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --x-bg:var(--background,#0f1115);
+    --x-card:var(--card,#161a22);
+    --x-card2:#1d232f;
+    --x-fg:var(--foreground,#e8ebf2);
+    --x-mut:var(--muted-foreground,#9aa4b8);
+    --x-acc:var(--accent,#6aa5ff);
+    --x-accfg:var(--accent-foreground,#08101f);
+    --x-bd:var(--border,#28303f);
+    --x-errbg:#2a1518; --x-errbd:#5b2430; --x-errfg:#f2b8c0;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--x-bg);color:var(--x-fg);font-family:var(--sans)}
+button{font-family:var(--sans)}
+#app{max-width:1150px;margin:0 auto;padding:14px 18px 26px}
+
+/* top bar */
+header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 2px 14px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+.brand .logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--x-acc),#a78bfa);display:grid;place-items:center;color:var(--x-accfg);font-size:15px}
+header .grow{flex:1}
+select,input[type=text]{background:var(--x-card);color:var(--x-fg);border:1px solid var(--x-bd);border-radius:9px;padding:8px 10px;font-size:13.5px;outline:none}
+input[type=text]{width:250px}
+input[type=text]:focus{border-color:var(--x-acc)}
+input[type=range]{accent-color:var(--x-acc);cursor:pointer}
+.btn{background:var(--x-card);color:var(--x-fg);border:1px solid var(--x-bd);border-radius:9px;padding:8px 13px;font-size:13.5px;cursor:pointer}
+.btn:hover{border-color:var(--x-acc)}
+.btn.primary{background:var(--x-acc);color:var(--x-accfg);border-color:transparent;font-weight:600}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.on{background:var(--x-acc);color:var(--x-accfg);border-color:transparent}
+
+/* layout */
+main{display:flex;gap:16px;align-items:flex-start}
+aside{width:295px;flex:0 0 295px;background:var(--x-card);border:1px solid var(--x-bd);border-radius:14px;overflow:hidden;position:sticky;top:12px}
+.aside-tabs{display:flex;border-bottom:1px solid var(--x-bd)}
+.aside-tabs button{flex:1;padding:10px 0;background:none;border:none;color:var(--x-mut);font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent}
+.aside-tabs button.on{color:var(--x-fg);border-bottom-color:var(--x-acc)}
+#bookfilter{width:100%;border:none;border-bottom:1px solid var(--x-bd);border-radius:0;padding:8px 12px;background:var(--x-card2);color:var(--x-fg);font-size:13.5px;outline:none}
+#booklist{max-height:58vh;overflow:auto;padding:6px}
+.book{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:13.5px;color:var(--x-fg)}
+.book:hover{background:var(--x-card2)}
+.book.active{color:var(--x-acc);font-weight:700}
+.book .cnt{color:var(--x-mut);font-size:11px;font-weight:400}
+.chaps{display:flex;flex-wrap:wrap;gap:4px;padding:2px 8px 10px 14px}
+.chaps button{min-width:30px;height:28px;border-radius:7px;border:1px solid var(--x-bd);background:none;color:var(--x-mut);font-size:12px;cursor:pointer}
+.chaps button:hover{color:var(--x-fg);border-color:var(--x-acc)}
+.chaps button.on{background:var(--x-acc);color:var(--x-accfg);border-color:transparent;font-weight:700}
+.vs-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--x-mut);padding:2px 10px 4px 20px}
+.vs{display:flex;flex-wrap:wrap;gap:3px;padding:0 8px 12px 20px;max-height:150px;overflow-y:auto}
+.vs button{min-width:26px;height:22px;border-radius:6px;border:1px solid var(--x-bd);background:none;color:var(--x-mut);font-size:11px;cursor:pointer}
+.vs button:hover{color:var(--x-fg);border-color:var(--x-acc)}
+.vs button.cur{background:var(--x-acc);color:var(--x-accfg);border-color:transparent;font-weight:700}
+.hidden{display:none!important}
+
+/* reader */
+section.reader{flex:1;min-width:0}
+.passage-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin:2px 2px 10px}
+.passage-head h1{margin:0;font-family:var(--serif);font-size:26px;font-weight:600;color:var(--x-fg)}
+.passage-head .sub{color:var(--x-mut);font-size:12.5px}
+#toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:var(--x-card);border:1px solid var(--x-bd);border-radius:12px;margin-bottom:14px}
+.sep{width:1px;height:22px;background:var(--x-bd);margin:0 4px}
+#playBtn{min-width:118px;font-weight:700}
+#toolbar label{font-size:12.5px;color:var(--x-mut)}
+#toolbar select{padding:6px 8px;font-size:12.5px}
+#verses{background:var(--x-card);border:1px solid var(--x-bd);border-radius:14px;padding:22px 26px;font-family:var(--serif);font-size:18.5px;line-height:1.9;color:var(--x-fg)}
+#verses .v{border-radius:6px;padding:2px 4px;margin:-2px -4px;cursor:pointer;transition:background .12s}
+#verses .v:hover{background:var(--x-card2)}
+#verses .vn{font-family:var(--sans);font-size:11px;font-weight:700;color:var(--x-acc);vertical-align:super;margin-right:5px;user-select:none}
+#verses .v.speaking{background:color-mix(in srgb,var(--x-acc) 16%,transparent);box-shadow:inset 3px 0 0 var(--x-acc)}
+#status{color:var(--x-mut);font-size:13px;margin-left:auto}
+#loader{display:none;padding:60px 0;text-align:center;color:var(--x-mut);font-size:14px}
+#loader .spin{width:34px;height:34px;margin:0 auto 14px;border-radius:50%;border:3px solid var(--x-bd);border-top-color:var(--x-acc);animation:sp .9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#errbox{display:none;background:var(--x-errbg);border:1px solid var(--x-errbd);color:var(--x-errfg);padding:12px 14px;border-radius:10px;font-size:13.5px;margin-bottom:12px}
+#errbox button{margin-left:10px}
+footer{margin-top:14px;color:var(--x-mut);font-size:11.5px;text-align:center}
+footer a{color:var(--x-acc);text-decoration:none}
+
+/* menu + toast */
+#vmenu{position:fixed;z-index:60;background:var(--x-card2);border:1px solid var(--x-bd);border-radius:11px;padding:5px;display:none;box-shadow:0 10px 30px rgba(0,0,0,.25);min-width:200px}
+#vmenu button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--x-fg);padding:8px 10px;border-radius:7px;font-size:13px;cursor:pointer}
+#vmenu button:hover{background:var(--x-acc);color:var(--x-accfg)}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--x-acc);color:var(--x-accfg);padding:9px 16px;border-radius:10px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s;z-index:70}
+#toast.on{opacity:1}
+
+@media (max-width:860px){
+  main{flex-direction:column}
+  aside{position:static;width:100%;flex:none}
+  #booklist{max-height:280px}
+  input[type=text]{width:160px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><span class="logo">✦</span> E8 Digital - Bible</div>
+    <div class="grow"></div>
+    <select id="transSel" title="Translation"></select>
+    <form id="searchForm" style="display:flex;gap:8px">
+      <input id="searchInput" type="text" placeholder="john 3:16 · matt 25:31-33,46 · ps 23" autocomplete="off" spellcheck="false">
+      <button class="btn primary" type="submit">Go</button>
+    </form>
+    <button class="btn" id="randBtn" title="Random verse">🎲 Random</button>
+  </header>
+
+  <main>
+    <aside>
+      <div class="aside-tabs">
+        <button data-tab="ot" class="on">Old Testament</button>
+        <button data-tab="nt">New Testament</button>
+      </div>
+      <input id="bookfilter" type="text" placeholder="Filter books…" autocomplete="off">
+      <div id="booklist"></div>
+    </aside>
+
+    <section class="reader">
+      <div class="passage-head">
+        <h1 id="passageTitle">—</h1>
+        <span class="sub" id="passageSub"></span>
+      </div>
+      <div id="errbox"><span id="errText"></span><button class="btn" id="retryBtn">Retry</button></div>
+      <div id="toolbar">
+        <button class="btn" id="prevBtn">‹ Prev</button>
+        <button class="btn" id="playBtn">▶ Play</button>
+        <button class="btn" id="stopBtn" title="Stop reading">■</button>
+        <button class="btn" id="nextBtn">Next ›</button>
+        <span class="sep"></span>
+        <button class="btn" id="wholeChBtn" title="Toggle chapter view: full chapter ⇄ single verse">Full chapter</button>
+        <button class="btn" id="contBtn" title="Keep reading into the next chapter">🔗 Continuous</button>
+        <span class="sep"></span>
+        <label>Speed</label>
+        <input id="rateSel" type="range" min="0.5" max="2" step="0.05" value="1" title="Narration speed (0.05 steps)" style="width:120px">
+        <span id="rateVal" style="font-size:12.5px;color:var(--x-mut);min-width:44px">1.00×</span>
+        <label>Gap</label>
+        <input id="gapSel" type="range" min="0" max="3" step="0.05" value="0.3" title="Silence between verses" style="width:110px">
+        <span id="gapVal" style="font-size:12.5px;color:var(--x-mut);min-width:38px">0.30s</span>
+        <select id="voiceSel" title="Narration voice" style="max-width:190px"></select>
+        <span id="status"></span>
+      </div>
+      <div id="loader"><div class="spin"></div>Fetching scripture…</div>
+      <div id="verses"></div>
+      <footer>Public-domain text via <a href="https://bible-api.com" target="_blank" rel="noopener">bible-api.com</a> · narration by your browser's speech engine · offline chapter cache</footer>
+    </section>
+  </main>
+</div>
+
+<div id="vmenu"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const API = "https://bible-api.com";
+const TR = [
+  ["web","World English Bible"], ["kjv","King James Version"], ["asv","Am. Standard (1901)"],
+  ["bbe","Bible in Basic English"], ["dra","Douay-Rheims (1899)"], ["darby","Darby Bible"],
+  ["oeb-us","Open English (US)"], ["oeb-cw","Open English (Cwlth)"],
+  ["webbe","World English (British)"], ["ylt","Young's Literal (NT)"]
+];
+// [id, name, chapters] — Protestant canon order
+const B = [
+["GEN","Genesis",50],["EXO","Exodus",40],["LEV","Leviticus",27],["NUM","Numbers",36],["DEU","Deuteronomy",34],
+["JOS","Joshua",24],["JDG","Judges",21],["RUT","Ruth",4],["1SA","1 Samuel",31],["2SA","2 Samuel",24],
+["1KI","1 Kings",22],["2KI","2 Kings",25],["1CH","1 Chronicles",29],["2CH","2 Chronicles",36],["EZR","Ezra",10],
+["NEH","Nehemiah",13],["EST","Esther",10],["JOB","Job",42],["PSA","Psalms",150],["PRO","Proverbs",31],
+["ECC","Ecclesiastes",12],["SNG","Song of Solomon",8],["ISA","Isaiah",66],["JER","Jeremiah",52],["LAM","Lamentations",5],
+["EZK","Ezekiel",48],["DAN","Daniel",12],["HOS","Hosea",14],["JOL","Joel",3],["AMO","Amos",9],
+["OBA","Obadiah",1],["JON","Jonah",4],["MIC","Micah",7],["NAM","Nahum",3],["HAB","Habakkuk",3],
+["ZEP","Zephaniah",3],["HAG","Haggai",2],["ZEC","Zechariah",14],["MAL","Malachi",4],
+["MAT","Matthew",28],["MRK","Mark",16],["LUK","Luke",24],["JHN","John",21],["ACT","Acts",28],
+["ROM","Romans",16],["1CO","1 Corinthians",16],["2CO","2 Corinthians",13],["GAL","Galatians",6],["EPH","Ephesians",6],
+["PHP","Philippians",4],["COL","Colossians",4],["1TH","1 Thessalonians",5],["2TH","2 Thessalonians",3],["1TI","1 Timothy",6],
+["2TI","2 Timothy",4],["TIT","Titus",3],["PHM","Philemon",1],["HEB","Hebrews",13],["JAS","James",5],
+["1PE","1 Peter",5],["2PE","2 Peter",3],["1JN","1 John",5],["2JN","2 John",1],["3JN","3 John",1],
+["JUD","Jude",1],["REV","Revelation",22]
+].map((b,i)=>({id:b[0],name:b[1],ch:b[2],ot:i<39}));
+const bookById = id => B.find(b=>b.id===id);
+const idxOf = id => B.findIndex(b=>b.id===id);
+// map API book names/ids -> canonical id (handles 'Song of Solomon' vs 'Song of Songs', etc.)
+const NAME2ID = {};
+B.forEach(b=>{ NAME2ID[b.id]=b.id; NAME2ID[b.name.toLowerCase()]=b.id; });
+Object.assign(NAME2ID, {"song of songs":"SNG","song of solomon":"SNG","1 maccabees":null,"the psalms":"PSA"});
+
+const $ = s => document.querySelector(s);
+const els = {
+  trans:$("#transSel"), list:$("#booklist"), filter:$("#bookfilter"), title:$("#passageTitle"), sub:$("#passageSub"),
+  verses:$("#verses"), loader:$("#loader"), err:$("#errbox"), errText:$("#errText"),
+  play:$("#playBtn"), stop:$("#stopBtn"), prev:$("#prevBtn"), next:$("#nextBtn"),
+  whole:$("#wholeChBtn"), cont:$("#contBtn"), rate:$("#rateSel"), rateVal:$("#rateVal"),
+  gap:$("#gapSel"), gapVal:$("#gapVal"), voice:$("#voiceSel"),
+  status:$("#status"), menu:$("#vmenu"), toast:$("#toast")
+};
+
+let LANG = localStorage.getItem("hb.lang") || "web";
+let cur = null;   // {bookId, ch1, ch2, verses[], mode:'chapter'|'passage', rawRef}
+let lastPassageRef = null;  // verse you were on before toggling Full chapter
+let cont = localStorage.getItem("hb.cont") === "1";
+els.cont.classList.toggle("on", cont);
+els.cont.onclick = ()=>{ cont=!cont; localStorage.setItem("hb.cont", cont?"1":"0"); els.cont.classList.toggle("on",cont); };
+
+/* helpers */
+const clean = t => t.replace(/\s+/g," ").replace(/\bLORD\b/g,"Lord").trim();  // LORD→Lord for TTS
+const esc = s => s.replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const refUrl = s => encodeURIComponent(s).replace(/%20/g,"+");
+function toast(m){ els.toast.textContent=m; els.toast.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>els.toast.classList.remove("on"),2400); }
+
+/* translation select */
+els.trans.innerHTML = TR.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join("");
+els.trans.value = LANG;
+els.trans.onchange = e => {
+  LANG = e.target.value; localStorage.setItem("hb.lang",LANG);
+  if(cur){ stopTTS(); cur.rawRef ? loadRef(cur.rawRef) : loadChapter(cur.bookId, cur.ch1); }
+};
+
+/* ── sidebar ── */
+let tab = "ot", filterQ = "";
+function buildList(){
+  const q = filterQ.trim();
+  els.list.innerHTML = `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--x-mut);padding:10px 10px 4px">${tab==="ot"?"Old Testament":"New Testament"}</div>` +
+    B.filter(b=>(tab==="ot")===b.ot && (!q || b.name.toLowerCase().includes(q.toLowerCase())))
+    .map(b=>{
+      const active = cur && cur.bookId===b.id;
+      return `<div>
+        <div class="book ${active?"active":""}" data-id="${b.id}"><span>${b.name}</span><span class="cnt">${b.ch} ch</span></div>
+        <div class="chaps ${active?"":"hidden"}" data-for="${b.id}">
+          ${Array.from({length:b.ch},(_,i)=>`<button data-ch="${i+1}" class="${active&&cur.ch1<=i+1&&cur.ch2>=i+1?"on":""}">${i+1}</button>`).join("")}
+        </div>
+        <div class="vsec ${active?"":"hidden"}" data-for="${b.id}"></div></div>`;
+    }).join("");
+  refreshVerseStrip();
+}
+/* verse chips under the active chapter (numbers + current highlighted) */
+async function refreshVerseStrip(){
+  const sec = els.list.querySelector(".vsec:not(.hidden)");
+  if(!sec){ return; }
+  if(!cur){ sec.innerHTML=""; return; }
+  const ch = cur.verses[cur.verses.length-1].chapter;
+  let nums;
+  if(cur.mode==="chapter") nums = cur.verses.map(v=>v.verse);
+  else {
+    try{ const d = await chapterData(cur.bookId, ch); nums = d.verses.map(v=>v.verse); }
+    catch(e){ sec.innerHTML=""; return; }
+  }
+  if(sec.dataset.for !== cur.bookId || +sec.dataset.ch !== ch){    // rebuild when context changed
+    sec.dataset.for = cur.bookId; sec.dataset.ch = ch;
+    sec.innerHTML = `<div class="vs-h">${bookById(cur.bookId).name} ${ch} — verses</div>
+      <div class="vs">${nums.map(n=>`<button data-vs="${n}" data-ch="${ch}">${n}</button>`).join("")}</div>`;
+  }
+  // highlight: the verse being read, else the passage verse(s) in view
+  let hot;
+  if(tts.playing && cur.verses[tts.qi]) hot = cur.verses[tts.qi].chapter===ch ? cur.verses[tts.qi].verse : null;
+  else if(cur.mode==="passage") hot = cur.verses.length===1 && cur.verses[0].chapter===ch ? cur.verses[0].verse : null;
+  sec.querySelectorAll(".vs button").forEach(el=>el.classList.toggle("cur", +el.dataset.vs===hot));
+  if(hot!=null){ const el = sec.querySelector(`.vs button[data-vs="${hot}"]`);
+    if(el) el.scrollIntoView({block:"nearest"}); }
+}
+els.filter.oninput = e => { filterQ=e.target.value; buildList(); };
+document.querySelectorAll(".aside-tabs button").forEach(btn=>btn.onclick = ()=>{
+  tab = btn.dataset.tab;
+  document.querySelectorAll(".aside-tabs button").forEach(b=>b.classList.toggle("on",b===btn));
+  buildList();
+});
+els.list.addEventListener("click", async ev=>{
+  const vs = ev.target.closest(".vs button");
+  if(vs){ stopTTS(); const b = bookById(vs.parentElement.parentElement.dataset.for);
+    loadRef(`${b.name} ${vs.dataset.ch}:${vs.dataset.vs}`); return; }
+  const cp = ev.target.closest(".chaps button");
+  const bk = ev.target.closest(".book");
+  if(cp){ stopTTS(); loadChapter(cp.parentElement.dataset.for, +cp.dataset.ch); return; }
+  if(bk){
+    const c = els.list.querySelector(`.chaps[data-for="${bk.dataset.id}"]`);
+    els.list.querySelectorAll(".chaps").forEach(x=>{ if(x!==c) x.classList.add("hidden"); });
+    c.classList.toggle("hidden");
+    if(!c.classList.contains("hidden")) bk.scrollIntoView({block:"nearest"});
+  }
+});
+
+/* ── fetching ── */
+async function fetchJson(url){
+  // prefer the local narrator server's proxy when it's up (no rate limit, on-disk cache)
+  if(srvOk && url.startsWith(API + "/")) url = SRV + "/api/" + url.slice(API.length + 1);
+  let r;
+  try{
+    r = await fetch(url, {signal: AbortSignal.timeout(12000)});
+  }catch(e){
+    const err = new Error(e.name==="TimeoutError" ? "Request timed out (12s) — check the narrator server or your connection." : "Network error: "+e.message);
+    err.timeout = true; throw err;
+  }
+  if(r.status===404){
+    // friendly hint: YLT is New Testament only
+    if(LANG==="ylt"){
+      const m = url.match(/\/data\/ylt\/([A-Z0-9]{3})\//);
+      const ot = m ? B.find(b=>b.id===m[1])?.ot
+                   : B.some(b=>b.ot && url.toLowerCase().includes(b.name.toLowerCase().replace(/ /g,"+")));
+      if(ot){ const e=new Error("Young's Literal Translation is New Testament only — pick WEB or KJV for this book."); e.ntonly=true; throw e; }
+    }
+    const e=new Error("Passage not found — check the reference (or that the translation has this book)."); e.notFound=true; throw e;
+  }
+  if(r.status===429){ throw new Error("Rate-limited by bible-api.com (15 req / 30 s). Wait a few seconds."); }
+  if(!r.ok) throw new Error("API error "+r.status+". Try again shortly.");
+  return r.json();
+}
+async function chapterData(bookId, ch){       // cached chapter for full-chapter view & verse stepping
+  const key = `hb.p.${LANG}.${bookId}.${ch}`;
+  let d = localStorage.getItem(key);
+  if(d) return JSON.parse(d);
+  d = await fetchJson(`${API}/data/${LANG}/${bookId}/${ch}`);
+  try{ localStorage.setItem(key, JSON.stringify(d)); }catch(e){}
+  return d;
+}
+/* Load an arbitrary typed reference through the API's own parser ("john 3:16", "matt 25:31-33,46"…) */
+async function loadRef(ref, opts){
+  opts = opts || {};
+  if(!opts.silent){ showLoader(true); hideErr(); }
+  try{
+    const d = await fetchJson(`${API}/${refUrl(ref)}?translation=${LANG}&single_chapter_book_matching=indifferent`);
+    if(!d.verses || !d.verses.length) throw new Error("No verses returned.");
+    const first = d.verses[0];
+    const bookId = NAME2ID[first.book_name.toLowerCase()] || first.book_id || NAME2ID[ref];
+    if(!bookId) throw new Error("Couldn't identify that book.");
+    setPassage(bookId, d.verses, "passage", ref, d.reference||ref);
+  }catch(e){ showErr(e.message, e.ntonly); if(opts&&opts.fallback) load("JHN",3); }
+  finally{ if(!opts.silent) showLoader(false); }
+}
+async function loadChapter(bookId, ch, silent){
+  if(!silent){ showLoader(true); hideErr(); }
+  try{
+    const d = await chapterData(bookId, ch);
+    setPassage(bookId, d.verses, "chapter", null, `${bookById(bookId).name} ${ch}`);
+    return d;
+  }catch(e){ showErr(e.message, e.ntonly); return null; }
+  finally{ if(!silent) showLoader(false); }
+}
+function setPassage(bookId, verses, mode, rawRef, label){
+  if(mode==="passage") lastPassageRef = null;   // new passage supersedes any stored toggle-back verse
+  cur = {
+    bookId,
+    ch1: verses[0].chapter, ch2: verses[verses.length-1].chapter,
+    verses: verses.map(v=>({book_id:bookId, chapter:v.chapter, verse:v.verse, text:v.text.replace(/\s+/g," ").trim()})),
+    mode, rawRef, label
+  };
+  render();
+}
+/* plain book+chapter load */
+function load(bookId, ch){ return loadChapter(bookId, Math.max(1, Math.min(ch, bookById(bookId).ch))); }
+
+function render(){
+  const b = bookById(cur.bookId);
+  els.title.textContent = cur.label || (cur.mode==="chapter" ? `${b.name} ${cur.ch1}` : cur.rawRef);
+  els.sub.textContent = `${(TR.find(t=>t[0]===LANG)||[,""])[1]} · ${cur.verses.length} verses${cur.mode==="chapter"?" · full chapter":""}`;
+  els.verses.innerHTML = cur.verses.map((v,i)=>
+    `<span class="v" data-i="${i}" data-ref="${esc(`${b.name} ${v.chapter}:${v.verse}`)}"><span class="vn">${v.verse}</span>${esc(v.text)} </span>`).join("");
+  els.verses.style.display="block";
+  els.play.disabled = !cur.verses.length;
+  els.whole.classList.toggle("on", cur.mode==="chapter");
+  buildList();
+  const act = els.list.querySelector(".book.active"); if(act) act.scrollIntoView({block:"nearest"});
+  localStorage.setItem("hb.last", els.title.textContent);
+  localStorage.setItem("hb.lastLang", LANG);
+  history.replaceState(null,"","#"+LANG+"/"+els.title.textContent);
+}
+function showLoader(on){ els.loader.style.display=on?"block":"none"; if(on) els.verses.style.display="none"; }
+function showErr(m, ntonly){
+  els.errText.textContent = m;
+  els.retryBtn.textContent = ntonly ? "Switch to World English Bible" : "Retry";
+  els.retryBtn.dataset.ntonly = ntonly ? "1" : "";
+  els.err.style.display="block"; if(cur) els.verses.style.display="block";
+}
+function hideErr(){ els.err.style.display="none"; }
+$("#retryBtn").onclick = function(){
+  if(this.dataset.ntonly){ LANG="web"; els.trans.value="web"; localStorage.setItem("hb.lang",LANG); stopTTS();
+    return cur && cur.mode==="chapter" ? loadChapter(cur.bookId,cur.ch1)
+         : cur ? loadRef(cur.rawRef) : load("GEN",1); }
+  return cur && (cur.mode==="chapter" ? loadChapter(cur.bookId,cur.ch1) : loadRef(cur.rawRef));
+};
+
+/* ── prev / next (chapter steps in chapter mode; verse steps in passage mode) ── */
+async function step(dir){
+  if(!cur) return;
+  stopTTS();
+  if(cur.mode==="chapter"){
+    const ci = idxOf(cur.bookId)+dir;
+    if(ci<0||ci>=B.length) return toast(dir>0?"End of the Bible.":"Beginning of the Bible.");
+    const nb = B[ci];
+    return load(nb.id, dir>0 ? 1 : nb.ch);
+  }
+  // passage mode: step verse by verse inside the current chapter, then hop chapters
+  const ch = cur.verses[cur.verses.length-1].chapter;
+  const d = await chapterData(cur.bookId, ch).catch(()=>null);
+  if(!d) return;
+  const nums = [...new Set(d.verses.map(v=>v.verse))];
+  const lastV = cur.verses[cur.verses.length-1].verse;
+  let ni = nums.indexOf(lastV) + dir;
+  if(ni>=0 && ni<nums.length) return loadRef(`${bookById(cur.bookId).name} ${ch}:${nums[ni]}`);
+  const ci = idxOf(cur.bookId)+dir;
+  if(ci<0||ci>=B.length) return toast(dir>0?"End of the Bible.":"Beginning of the Bible.");
+  const nb = B[ci], nd = await chapterData(nb.id, dir>0?1:nb.ch).catch(()=>null);
+  if(!nd) return;
+  const n = dir>0 ? nd.verses[0] : nd.verses[nd.verses.length-1];
+  loadRef(`${nb.name} ${n.chapter}:${n.verse}`);
+}
+els.prev.onclick = ()=>step(-1);
+els.next.onclick = ()=>step(1);
+els.whole.onclick = ()=>{
+  if(!cur) return;
+  stopTTS();
+  if(cur.mode==="passage"){ lastPassageRef = cur.rawRef || cur.label; loadChapter(cur.bookId, cur.ch1); }
+  else if(lastPassageRef){ const r = lastPassageRef; lastPassageRef = null; loadRef(r); }   // back to your verse
+  else { const v = cur.verses[0];                                                           // arrived on a chapter directly: collapse to its first verse
+    if(v) setPassage(cur.bookId, [v], "passage", `${bookById(cur.bookId).name} ${v.chapter}:${v.verse}`); }
+};
+
+/* ── search ── */
+$("#searchForm").onsubmit = ev=>{
+  ev.preventDefault();
+  const s = $("#searchInput").value.trim();
+  if(!s) return;
+  stopTTS(); loadRef(s); $("#searchInput").value="";
+};
+
+/* ── random verse ── */
+$("#randBtn").onclick = async ()=>{
+  stopTTS(); showLoader(true); hideErr();
+  try{
+    const d = await fetchJson(`${API}/data/${LANG}/random`);
+    showLoader(false);
+    const rv = d.verses && d.verses.length ? d.verses[0] : d.random_verse;
+    loadRef(`${rv.book} ${rv.chapter}:${rv.verse}`);
+  }catch(e){ showLoader(false); showErr(e.message); }
+};
+
+/* ── verse click menu ── */
+els.verses.addEventListener("click", ev=>{
+  const v = ev.target.closest(".v"); if(!v) return;
+  const i = +v.dataset.i, vv = cur.verses[i];
+  els.menu.innerHTML = `
+    <button data-act="copy">📋 Copy verse &amp; reference</button>
+    <button data-act="play">▶ Read from here</button>
+    <button data-act="playv">🔊 Just this verse</button>
+    <button data-act="chapter">📖 Full ${esc(bookById(cur.bookId).name)} ${vv.chapter}</button>`;
+  els.menu.dataset.i = i;
+  els.menu.style.display = "block";
+  const r = v.getBoundingClientRect();
+  els.menu.style.left = Math.min(r.left, window.innerWidth-230)+"px";
+  els.menu.style.top = Math.min(r.bottom+8, window.innerHeight-180)+"px";
+});
+els.menu.addEventListener("mousedown", e=>{
+  const act = e.target.closest("button")?.dataset.act; if(!act) return;
+  e.preventDefault(); els.menu.style.display="none";
+  const i = +els.menu.dataset.i, vv = cur.verses[i];
+  const b = bookById(cur.bookId), ref = `${b.name} ${vv.chapter}:${vv.verse}`;
+  if(act==="copy") copy(`${clean(vv.text)} — ${ref} (${LANG})`);
+  if(act==="play") startTTS(i);
+  if(act==="playv"){ stopTTS(); speakOnce(clean(vv.text)); }
+  if(act==="chapter") loadChapter(b.id, vv.chapter);
+});
+document.addEventListener("click", ev=>{ if(!ev.target.closest("#vmenu") && !ev.target.closest(".v")) els.menu.style.display="none"; });
+function copy(t){ navigator.clipboard.writeText(t).then(()=>toast("Copied ✓")).catch(()=>toast("Copy failed")); }
+
+/* ── text-to-speech ──
+   Narrator priority: local free neural server (edge-tts, http://127.0.0.1:8747)
+   -> browser speechSynthesis fallback. */
+const synth = window.speechSynthesis;
+const SRV = "http://127.0.0.1:8747";
+let srvOk = false, voices = [], audioEl = new Audio();
+let bakedRate = 1;   // speed baked into the clip currently loaded from the server
+let gapTimer = null, advGen = 0;
+audioEl.preload = "auto";
+audioEl.addEventListener("ended", ()=>{ if(tts.playing) scheduleAdvance(); });
+
+(async function probeServer(){
+  try{
+    const r = await fetch(SRV+"/tts/ping", {signal: AbortSignal.timeout(1500)});
+    srvOk = r.ok;
+  }catch(e){ srvOk = false; }
+  if(srvOk) loadServerVoices();
+  fillVoices();
+})();
+
+async function loadServerVoices(){
+  try{
+    const r = await fetch(SRV+"/voices", {signal: AbortSignal.timeout(15000)});
+    const vs = await r.json();
+    srvVoices = vs;
+    fillVoices();
+    if(!localStorage.getItem("hb.voice")){
+      els.voice.value = "en-US-GuyNeural"; localStorage.setItem("hb.voice","en-US-GuyNeural");
+    }
+  }catch(e){ srvOk = false; fillVoices(); }
+}
+let srvVoices = [];
+
+function fillVoices(){
+  if(srvOk && srvVoices.length){
+    const sel = localStorage.getItem("hb.voice")||"en-US-GuyNeural";
+    els.voice.innerHTML = srvVoices.map(v=>
+      `<option value="${esc(v.name)}" ${v.name===sel?"selected":""}>${esc(v.name.replace(/^en-[A-Z]+\//,""))} · ${v.gender}</option>`).join("");
+    els.status.textContent = "";
+    return;
+  }
+  if(!synth && !(srvOk && srvVoices.length)) { els.play.disabled=true; els.play.textContent="No TTS"; return; }
+  if(!synth) { els.play.disabled=false; els.play.textContent="▶ Play"; return; } // server is the engine
+  voices = synth.getVoices();
+  const en = voices.filter(v=>(v.lang||"").startsWith("en"));
+  const list = en.length ? en : voices;
+  const sel = localStorage.getItem("hb.voice")||"";
+  els.voice.innerHTML = `<option value="">(default voice)</option>` +
+    list.map(v=>`<option value="${esc(v.name)}" ${v.name===sel?"selected":""}>${esc(v.name)} · ${v.lang}</option>`).join("");
+  if(!list.some(v=>v.name===sel)) els.voice.value="";
+}
+if(synth){ fillVoices(); synth.onvoiceschanged = fillVoices; }
+else { els.play.disabled=true; els.play.textContent="No TTS"; els.stop.disabled=true; }
+function setRateUI(){
+  const r = parseFloat(els.rate.value||"1");
+  els.rateVal.textContent = r.toFixed(2)+"×";
+  audioEl.playbackRate = r / bakedRate;   // delta-correct: clip already has bakedRate
+}
+els.rate.value = localStorage.getItem("hb.rate")||"1";
+setRateUI();
+els.rate.oninput = ()=>{ localStorage.setItem("hb.rate", els.rate.value); setRateUI(); };
+function setGapUI(){ els.gapVal.textContent = parseFloat(els.gap.value||"0").toFixed(2)+"s"; }
+els.gap.value = localStorage.getItem("hb.gap")||"0.3";
+setGapUI();
+els.gap.oninput = ()=>{ localStorage.setItem("hb.gap", els.gap.value); setGapUI(); };
+els.voice.onchange = ()=>localStorage.setItem("hb.voice", els.voice.value);
+
+let tts = {playing:false, qi:0, auto:false, engine:"srv", warned:false};
+function findVoice(){ return voices.find(v=>v.name===els.voice.value)||null; }
+function verseUrl(i){
+  const v = cur.verses[i];
+  return `${SRV}/tts?voice=${encodeURIComponent(els.voice.value||"en-US-GuyNeural")}`
+    + `&rate=${encodeURIComponent(els.rate.value||"1")}&text=${encodeURIComponent(clean(v.text))}`;
+}
+function prefetchNext(){
+  if(!srvOk || !tts.playing) return;
+  for(const n of [tts.qi+1, tts.qi+2]){   // 2 ahead: hides first-listen generation time inside verse gaps
+    if(n < cur.verses.length){ const a = new Audio(verseUrl(n)); a.preload="auto"; a.load(); }
+  }
+}
+/* verse position for the status bar: chapter-relative in single-verse mode ("16 / 36"),
+   passage-local in chapter/multi-verse mode. */
+async function verseStats(){
+  const v = cur.verses[Math.max(0, Math.min(tts.qi, cur.verses.length-1))];
+  if(cur.mode==="chapter" || cur.verses.length>1) return {idx: tts.qi+1, total: cur.verses.length};
+  if(cur.chTotal == null){
+    try{ const d = await chapterData(cur.bookId, v.chapter);
+         cur.chTotal = [...new Set(d.verses.map(x=>x.verse))].length; }
+    catch(e){ cur.chTotal = null; }
+  }
+  return {idx: v.verse, total: cur.chTotal};
+}
+async function scheduleAdvance(){
+  clearTimeout(gapTimer);
+  const g = parseFloat(els.gap.value||"0")*1000;
+  const gen = advGen;
+  const go = ()=>{ if(!tts.playing || gen!==advGen) return; tts.inGap=false; tts.qi++; speakNext(); };
+  if(g <= 0){ tts.inGap=false; return go(); }
+  tts.inGap = true;
+  const st = await verseStats();
+  els.status.textContent = `… ${(g/1000).toFixed(2)}s gap · verse ${st.idx}${st.total?"/"+st.total:""}`;
+  gapTimer = setTimeout(go, g);
+}
+function speakOnce(text){
+  if(srvOk){
+    const a = new Audio(`${SRV}/tts?voice=${encodeURIComponent(els.voice.value||"en-US-GuyNeural")}&rate=${encodeURIComponent(els.rate.value||"1")}&text=${encodeURIComponent(text)}`);
+    a.play().catch(()=>{}); return;
+  }
+  if(!synth) return;
+  const u = new SpeechSynthesisUtterance(text);
+  const v=findVoice(); if(v){u.voice=v;u.lang=v.lang;}
+  u.rate=parseFloat(els.rate.value||"1");
+  synth.speak(u);
+}
+function startTTS(fromIndex){
+  if((!synth && !srvOk) || !cur || !cur.verses.length) return;
+  if(synth) synth.cancel();
+  audioEl.pause();
+  tts.playing = true;
+  tts.hadGap = false;
+  tts.engine = srvOk ? "srv" : "brow";
+  tts.auto = cont;
+  tts.qi = fromIndex||0;
+  els.play.textContent = "⏸ Pause";
+  speakNext();
+  // watchdog: if neither engine actually started, tell the user
+  setTimeout(()=>{
+    if(!tts.playing) return;
+    const a = audioEl;
+    const alive = (tts.engine==="srv" && (!a.paused || a.readyState>0)) || (tts.engine==="brow" && synth.speaking);
+    if(!alive){ els.status.textContent=""; toast(srvOk ? "Still generating narrator audio… first play of a verse takes a moment." : "Couldn't start audio — open in Edge/Chrome, or run Start Bible Audio.bat."); }
+  }, 5000);
+}
+async function speakNext(){
+  if(!tts.playing) return;
+  if(tts.qi >= cur.verses.length){
+    if(tts.auto){ // continuous: carry on in the CURRENT display state (chapter vs single verse)
+      if(!cont) return endTTS("Done ✓");
+      els.status.textContent = "Loading next…";
+      if(cur.mode==="chapter"){
+        const b0 = bookById(cur.bookId);
+        let nbId = cur.bookId, nch = cur.ch1+1;
+        if(nch > b0.ch){
+          const ci = idxOf(cur.bookId)+1, nb = B[ci];
+          if(ci >= B.length) return endTTS("End of the Bible ✓");
+          nbId = nb.id; nch = 1;
+        }
+        const d = await loadChapter(nbId, nch, true);
+        if(d && cur && cont && cur.mode==="chapter"){ tts.qi=0; return speakNext(); }
+        return endTTS("Stopped — couldn't load the next chapter.");
+      }
+      // verse state: advance one verse, crossing chapter/book boundaries silently
+      const b0 = bookById(cur.bookId), lastCh = cur.ch2;
+      const d = await chapterData(cur.bookId, lastCh).catch(()=>null);
+      if(!d) return endTTS("Stopped — couldn't load the next verse.");
+      const nums = [...new Set(d.verses.map(v=>v.verse))];
+      const lastV = cur.verses[cur.verses.length-1].verse;
+      const ni = nums.indexOf(lastV)+1;
+      let ref;
+      if(ni < nums.length) ref = `${b0.name} ${lastCh}:${nums[ni]}`;
+      else if(lastCh < b0.ch) ref = `${b0.name} ${lastCh+1}:1`;
+      else {
+        const ci = idxOf(cur.bookId)+1, nb = B[ci];
+        if(ci >= B.length) return endTTS("End of the Bible ✓");
+        ref = `${nb.name} 1:1`;
+      }
+      await loadRef(ref, {silent:true});
+      if(cur && cur.rawRef === ref && cur.mode==="passage" && cont){ tts.qi=0; return speakNext(); }
+      if(!cont) return endTTS("Done ✓");
+      return endTTS("Stopped — couldn't load "+ref+". Is the narrator server running? (Start Bible Audio.bat)");
+    }
+    return endTTS("Done ✓");
+  }
+  markSpeaking(tts.qi);
+  const st = await verseStats();
+  els.status.textContent = st.total ? `verse ${st.idx} / ${st.total}` : `verse ${st.idx}`;
+  if(tts.engine==="srv"){
+    audioEl.src = verseUrl(tts.qi);
+    bakedRate = parseFloat(els.rate.value||"1");   // baked into this clip
+    audioEl.playbackRate = 1;
+    audioEl.play().catch(err=>{
+      if(!tts.playing) return;
+      tts.engine = "brow";
+      if(!tts.warned){ tts.warned=true; toast("Narrator server lost — falling back to browser voice."); }
+      return speakBrowser();
+    });
+    prefetchNext();
+  } else speakBrowser();
+}
+function speakBrowser(){
+  if(!synth){ endTTS(""); toast("No speech engine available."); return; }
+  const u = new SpeechSynthesisUtterance(clean(cur.verses[tts.qi].text));
+  const v = findVoice(); if(v){ u.voice=v; u.lang=v.lang; }
+  u.pitch = 1; u.rate = parseFloat(els.rate.value||"1");
+  u.onend = ()=>{ if(tts.playing){ scheduleAdvance(); } };
+  u.onerror = e=>{ if(e.error==="interrupted"||e.error==="canceled") return;
+    endTTS(""); toast("Speech error: "+(e.error||"unknown")); };
+  synth.speak(u);
+}
+function markSpeaking(i){
+  els.verses.querySelectorAll(".v.speaking").forEach(el=>el.classList.remove("speaking"));
+  if(i<0){ refreshVerseStrip(); return; }
+  const el = els.verses.querySelector(`.v[data-i="${i}"]`);
+  if(el) el.scrollIntoView({block:"center",behavior:"smooth"}), el.classList.add("speaking");
+  refreshVerseStrip();
+}
+function endTTS(status){
+  tts.playing=false; tts.auto=false; tts.halted=true; tts.inGap=false;
+  clearTimeout(gapTimer); advGen++;
+  if(synth) synth.cancel();
+  audioEl.pause(); audioEl.removeAttribute("src"); audioEl.load();
+  markSpeaking(-1);
+  els.play.textContent="▶ Play";
+  els.status.textContent = status||"";
+}
+function stopTTS(){ endTTS(""); }
+els.play.onclick = ()=>{
+  if((!synth && !srvOk) || !cur || !cur.verses.length) return;
+  if(tts.playing){ // pause
+    tts.playing=false;
+    if(tts.inGap){ clearTimeout(gapTimer); advGen++; tts.hadGap=true; }  // resume will re-run the gap
+    else if(tts.engine==="srv") audioEl.pause(); else if(synth) synth.pause();
+    els.play.textContent="▶ Resume";
+    return;
+  }
+  if(!tts.halted && tts.hadGap){ tts.hadGap=false; tts.playing=true; els.play.textContent="⏸ Pause"; return scheduleAdvance(); }
+  if(!tts.halted && tts.engine==="srv" && audioEl.src){ // resume paused clip
+    audioEl.play().catch(()=>startTTS(tts.qi));
+    tts.playing=true; els.play.textContent="⏸ Pause"; return;
+  }
+  if(!tts.halted && synth && synth.paused){ synth.resume(); tts.playing=true; els.play.textContent="⏸ Pause"; return; }
+  startTTS(cur && tts.qi && !tts.halted ? Math.min(tts.qi, cur.verses.length-1) : 0);
+};
+els.stop.onclick = stopTTS;
+window.addEventListener("beforeunload", ()=>{ if(synth) synth.cancel(); });
+// Chrome kills utterances >~15s silently; nudge the engine while playing
+setInterval(()=>{ if(synth && tts.playing && synth.speaking && !synth.paused){ synth.pause(); synth.resume(); } }, 10000);
+
+/* ── boot / hash routing ── */
+(async function boot(){
+  let ref = null;
+  const h = decodeURIComponent(location.hash.slice(1));
+  const m = h.match(/^(web|kjv|asv|bbe|dra|darby|oeb-us|oeb-cw|webbe|ylt)\/(.+)$/);
+  if(m){ LANG=m[1]; ref=m[2]; }
+  else if(h){ ref=h; }
+  els.trans.value = LANG;
+  if(!ref && localStorage.getItem("hb.last")){ LANG = localStorage.getItem("hb.lastLang")||LANG; ref = localStorage.getItem("hb.last"); }
+  if(ref){
+    const jm = ref.match(/^(\d?\s?[A-Za-z ]+?) (\d+):(\d+)$/);   // "John 3:16"
+    const chm = ref.match(/^(\d?\s?[A-Za-z ]+?) (\d+)$/);        // "John 3"
+    const bid = jm && NAME2ID[jm[1].toLowerCase().trim()];
+    if(bid && jm) return loadRef(`${jm[1].trim()} ${jm[2]}:${jm[3]}`);
+    const bid2 = chm && NAME2ID[chm[1].toLowerCase().trim()];
+    if(bid2 && chm) return load(bid2, +chm[2]);
+    return loadRef(ref);
+  }
+  return load("JHN", 3);
+})();
+</script>
+</body>
+</html>
