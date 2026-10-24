@@ -1,0 +1,6 @@
+# shell scripts must stay LF (CRLF breaks them on macOS/Linux)
+*.command text eol=lf
+*.sh      text eol=lf
+# python/html are fine either way but keep diffs clean
+*.py      text eol=lf
+*.html    text eol=lf

@@ -10,8 +10,11 @@ Free Bible reader + neural narrator. No accounts, no keys, no cost.
 - `bible-data-cache/` — cached bible-api.com JSON (bypasses the 15 req/30s rate limit)
 
 ## Run
-Double-click **Start Bible Audio.bat**, then use `http://127.0.0.1:8747` in Edge/Chrome.
-Without the server, open `bible-tts.html` directly — it falls back to browser voices.
+- **Windows:** double-click **Start Bible Audio.bat**, then use `http://127.0.0.1:8747` in Edge/Chrome.
+- **macOS / Linux:** run **start-bible-audio.command** (double-click on Mac; first time may need
+  `chmod +x` or right-click → Open). Then open `http://127.0.0.1:8747` in Safari/Chrome.
+- Without the server, open `bible-tts.html` directly — it falls back to browser voices
+  (Safari's voices are decent but the neural narrator needs the server).
 
 Requires: `uv` (https://docs.astral.sh/uv/) — edge-tts installs itself on first run.
 
