@@ -10,7 +10,7 @@ All data stays on your machine; caches live next to this file (bible-*-cache).
 Run:  uv run --with edge-tts python "D:\\Hermes\\Projects\\e8-bible\\bible-tts-server.py"
 Or:   double-click "Start Bible Audio.bat"
 """
-import asyncio, hashlib, json, os, threading
+import asyncio, hashlib, json, os, secrets, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
@@ -24,6 +24,7 @@ AUDIO_DIR = os.path.join(ROOT, "bible-audio-cache")
 PORT      = 8747
 API       = "https://bible-api.com/"
 UA        = {"User-Agent": "hermes-bible/1.0"}
+AUTH      = os.environ.get("HB_TOKEN", "").strip()   # require ?key= or X-Auth header when set
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(AUDIO_DIR, exist_ok=True)
@@ -109,6 +110,12 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             pass
 
+    def _authed(self, q):
+        if not AUTH:
+            return True
+        supplied = (q.get("key") or [""])[0] or self.headers.get("X-Auth", "")
+        return secrets.compare_digest(supplied, AUTH)
+
     def do_GET(self):
         u = urlparse(self.path)
         p = u.path
@@ -122,6 +129,9 @@ class Handler(BaseHTTPRequestHandler):
 
             if p == "/tts/ping":
                 return self._send(200, "text/plain", b"pong")
+
+            if not self._authed(parse_qs(u.query)):
+                return self._send(401, "text/plain", b"unauthorized")
 
             if p == "/voices":
                 vs = get_voices()
@@ -154,4 +164,4 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     print(f"E8 Digital - Bible narrator  ->  http://127.0.0.1:{PORT}")
     print("Keep this window open while listening. Close it to stop.")
-    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    ThreadingHTTPServer((os.environ.get("HB_BIND", "127.0.0.1"), PORT), Handler).serve_forever()

@@ -126,6 +126,7 @@ footer a{color:var(--x-acc);text-decoration:none}
       <button class="btn primary" type="submit">Go</button>
     </form>
     <button class="btn" id="randBtn" title="Random verse">🎲 Random</button>
+    <button class="btn" id="cfgBtn" title="Narrator server settings" style="padding:8px 10px">⚙</button>
   </header>
 
   <main>
@@ -171,6 +172,22 @@ footer a{color:var(--x-acc);text-decoration:none}
 
 <div id="vmenu"></div>
 <div id="toast"></div>
+
+<div id="cfgOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:80">
+  <div style="position:absolute;left:50%;top:18%;transform:translateX(-50%);width:min(420px,90vw);background:var(--x-card);border:1px solid var(--x-bd);border-radius:14px;padding:18px">
+    <h3 style="margin:0 0 4px;font-size:15px">Narrator server</h3>
+    <p style="margin:0 0 12px;font-size:12px;color:var(--x-mut)">Leave default for the PC launcher. For remote hosting enter the HTTPS URL and access key.</p>
+    <label style="font-size:12px;color:var(--x-mut)">Base URL</label><br>
+    <input id="cfgUrl" type="text" style="width:100%;margin:4px 0 10px" placeholder="https://bible.example.com"><br>
+    <label style="font-size:12px;color:var(--x-mut)">Access key</label><br>
+    <input id="cfgKey" type="text" style="width:100%;margin:4px 0 14px" placeholder="(from your server's HB_TOKEN)"><br>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" id="cfgReset">Reset local</button>
+      <button class="btn" id="cfgCancel">Cancel</button>
+      <button class="btn primary" id="cfgSave">Save &amp; reload</button>
+    </div>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -302,7 +319,7 @@ els.list.addEventListener("click", async ev=>{
 /* ── fetching ── */
 async function fetchJson(url){
   // prefer the local narrator server's proxy when it's up (no rate limit, on-disk cache)
-  if(srvOk && url.startsWith(API + "/")) url = SRV + "/api/" + url.slice(API.length + 1);
+  if(srvOk && url.startsWith(API + "/")) url = SRV + "/api/" + url.slice(API.length + 1) + (url.includes("?") ? "&" : "?") + kq().slice(1);
   let r;
   try{
     r = await fetch(url, {signal: AbortSignal.timeout(12000)});
@@ -485,7 +502,9 @@ function copy(t){ navigator.clipboard.writeText(t).then(()=>toast("Copied ✓"))
    Narrator priority: local free neural server (edge-tts, http://127.0.0.1:8747)
    -> browser speechSynthesis fallback. */
 const synth = window.speechSynthesis;
-const SRV = "http://127.0.0.1:8747";
+const SRV = localStorage.getItem("hb.srv") || "http://127.0.0.1:8747";
+const SRVKEY = localStorage.getItem("hb.srvkey") || ""
+const kq = () => SRVKEY ? "&key="+encodeURIComponent(SRVKEY) : "";
 let srvOk = false, voices = [], audioEl = new Audio();
 let bakedRate = 1;   // speed baked into the clip currently loaded from the server
 let gapTimer = null, advGen = 0;
@@ -503,7 +522,7 @@ audioEl.addEventListener("ended", ()=>{ if(tts.playing) scheduleAdvance(); });
 
 async function loadServerVoices(){
   try{
-    const r = await fetch(SRV+"/voices", {signal: AbortSignal.timeout(15000)});
+    const r = await fetch(SRV+"/voices?"+kq().slice(1), {signal: AbortSignal.timeout(15000)});
     const vs = await r.json();
     srvVoices = vs;
     fillVoices();
@@ -553,7 +572,7 @@ function findVoice(){ return voices.find(v=>v.name===els.voice.value)||null; }
 function verseUrl(i){
   const v = cur.verses[i];
   return `${SRV}/tts?voice=${encodeURIComponent(els.voice.value||"en-US-GuyNeural")}`
-    + `&rate=${encodeURIComponent(els.rate.value||"1")}&text=${encodeURIComponent(clean(v.text))}`;
+    + `&rate=${encodeURIComponent(els.rate.value||"1")}${kq()}&text=${encodeURIComponent(clean(v.text))}`;
 }
 function prefetchNext(){
   if(!srvOk || !tts.playing) return;
@@ -586,7 +605,7 @@ async function scheduleAdvance(){
 }
 function speakOnce(text){
   if(srvOk){
-    const a = new Audio(`${SRV}/tts?voice=${encodeURIComponent(els.voice.value||"en-US-GuyNeural")}&rate=${encodeURIComponent(els.rate.value||"1")}&text=${encodeURIComponent(text)}`);
+    const a = new Audio(`${SRV}/tts?voice=${encodeURIComponent(els.voice.value||"en-US-GuyNeural")}&rate=${encodeURIComponent(els.rate.value||"1")}${kq()}&text=${encodeURIComponent(text)}`);
     a.play().catch(()=>{}); return;
   }
   if(!synth) return;
@@ -718,6 +737,23 @@ els.stop.onclick = stopTTS;
 window.addEventListener("beforeunload", ()=>{ if(synth) synth.cancel(); });
 // Chrome kills utterances >~15s silently; nudge the engine while playing
 setInterval(()=>{ if(synth && tts.playing && synth.speaking && !synth.paused){ synth.pause(); synth.resume(); } }, 10000);
+
+/* ── narrator server settings dialog ── */
+const cfg = { box:$("#cfgOverlay"), url:$("#cfgUrl"), key:$("#cfgKey") };
+$("#cfgBtn").onclick = ()=>{
+  cfg.url.value = localStorage.getItem("hb.srv")||"";
+  cfg.key.value = localStorage.getItem("hb.srvkey")||"";
+  cfg.box.style.display="block";
+};
+$("#cfgCancel").onclick = ()=> cfg.box.style.display="none";
+$("#cfgSave").onclick = ()=>{
+  const u = cfg.url.value.trim().replace(/\/+$/,""), k = cfg.key.value.trim();
+  if(u && !/^https?:\/\//.test(u)){ cfg.url.style.borderColor="red"; return; }
+  if(u) localStorage.setItem("hb.srv",u); else localStorage.removeItem("hb.srv");
+  if(k) localStorage.setItem("hb.srvkey",k); else localStorage.removeItem("hb.srvkey");
+  location.reload();
+};
+$("#cfgReset").onclick = ()=>{ localStorage.removeItem("hb.srv"); localStorage.removeItem("hb.srvkey"); location.reload(); };
 
 /* ── boot / hash routing ── */
 (async function boot(){

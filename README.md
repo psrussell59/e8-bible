@@ -18,6 +18,20 @@ Free Bible reader + neural narrator. No accounts, no keys, no cost.
 
 Requires: `uv` (https://docs.astral.sh/uv/) — edge-tts installs itself on first run.
 
+## Remote / hosted deployment
+To run the narrator on a server (e.g. an EC2 box) instead of your PC:
+1. `git clone` this repo there, then run the server with one env var:
+   `HB_TOKEN=*** your secret>` (required — gates `/tts`, `/api`, `/voices`).
+   It binds `127.0.0.1:8747` by default, which is what you want behind a same-box proxy.
+2. Put Caddy/nginx in front for HTTPS + TLS, proxying to `127.0.0.1:8747` (same box).
+   Keep the default local bind — only set `HB_BIND=0.0.0.0` if the proxy runs on a
+   different machine, and firewall 8747 in that case.
+3. In the app, click **⚙** (top right) → enter the server's `https://…` URL and the
+   same access key → Save. `/tts/ping` and the page itself stay open; everything else 401s without the key.
+4. To go back to the local launcher, ⚙ → Reset local.
+
+`uv run python test-auth.py` (needs a free 8747) checks the whole auth matrix.
+
 ## Notes
 - YLT translation is New Testament only (OT books 404 there, by design).
 - Speed slider: 0.50–2.00× in 0.05 steps (baked into MP3s). Gap slider: 0–3s verse pause.
