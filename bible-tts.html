@@ -153,6 +153,7 @@ footer a{color:var(--x-acc);text-decoration:none}
         <span class="sep"></span>
         <button class="btn" id="wholeChBtn" title="Toggle chapter view: full chapter ⇄ single verse">Full chapter</button>
         <button class="btn" id="contBtn" title="Keep reading into the next chapter">🔗 Continuous</button>
+        <button class="btn" id="cacheBtn" title="Pre-generate audio for every verse in this chapter at the current voice+speed">⚡ Cache chapter</button>
         <span class="sep"></span>
         <label>Speed</label>
         <input id="rateSel" type="range" min="0.5" max="2" step="0.05" value="1" title="Narration speed (0.05 steps)" style="width:120px">
@@ -227,7 +228,7 @@ const els = {
   trans:$("#transSel"), list:$("#booklist"), filter:$("#bookfilter"), title:$("#passageTitle"), sub:$("#passageSub"),
   verses:$("#verses"), loader:$("#loader"), err:$("#errbox"), errText:$("#errText"),
   play:$("#playBtn"), stop:$("#stopBtn"), prev:$("#prevBtn"), next:$("#nextBtn"),
-  whole:$("#wholeChBtn"), cont:$("#contBtn"), rate:$("#rateSel"), rateVal:$("#rateVal"),
+  whole:$("#wholeChBtn"), cont:$("#contBtn"), cacheBtn:$("#cacheBtn"), rate:$("#rateSel"), rateVal:$("#rateVal"),
   gap:$("#gapSel"), gapVal:$("#gapVal"), voice:$("#voiceSel"),
   status:$("#status"), menu:$("#vmenu"), toast:$("#toast")
 };
@@ -452,6 +453,28 @@ els.whole.onclick = ()=>{
     if(v) setPassage(cur.bookId, [v], "passage", `${bookById(cur.bookId).name} ${v.chapter}:${v.verse}`); }
 };
 
+/* ── ⚡ cache chapter: pre-generate all verse audio (sequential, cancellable) ── */
+let caching = null;
+els.cacheBtn.onclick = ()=>{
+  if(caching){ caching.gen++; caching = null; els.cacheBtn.textContent = "⚡ Cache chapter"; return; }
+  if(!srvOk || !SRVKEY){ toast("Set the access key (⚙) to cache audio."); return; }
+  if(!cur || !cur.verses.length) return;
+  const job = caching = { gen:0 }, passage = cur;
+  els.cacheBtn.textContent = "⚡ 0/"+passage.verses.length;
+  (async ()=>{
+    for(let i=0;i<passage.verses.length;i++){
+      if(job.gen || cur!==passage) return;
+      try{ await fetch(verseUrl(i), {signal: AbortSignal.timeout(60000)}); }catch(e){}
+      if(job.gen || cur!==passage) return;
+      els.cacheBtn.textContent = `⚡ ${i+1}/${passage.verses.length}`;
+    }
+    if(!job.gen && cur===passage){
+      caching=null; els.cacheBtn.textContent = "✓ Cached";
+      setTimeout(()=>{ if(!caching) els.cacheBtn.textContent = "⚡ Cache chapter"; }, 2500);
+    }
+  })();
+};
+
 /* ── search ── */
 $("#searchForm").onsubmit = ev=>{
   ev.preventDefault();
@@ -579,9 +602,19 @@ function verseUrl(i){
 }
 function prefetchNext(){
   if(!srvOk || !tts.playing) return;
-  for(const n of [tts.qi+1, tts.qi+2]){   // 2 ahead: hides first-listen generation time inside verse gaps
-    if(n < cur.verses.length){ const a = new Audio(verseUrl(n)); a.preload="auto"; a.load(); }
-  }
+  for(const n of [tts.qi+1, tts.qi+2, tts.qi+3]) if(n < cur.verses.length) warmVerse(n);
+}
+// keep live references: GC would otherwise cancel the prefetch downloads mid-flight
+const warmers = new Set();
+function warmVerse(i){
+  if(!SRVKEY) return;                               // /tts is key-gated; no key, no point
+  if(warmers.size > 8) return;
+  const a = new Audio(verseUrl(i));
+  a.preload = "auto";
+  const done = ()=>{ a.removeAttribute("src"); a.load(); warmers.delete(a); };
+  a.addEventListener("loadeddata", done);          // response headers+first chunk => server cached it
+  a.addEventListener("error", done);
+  warmers.add(a); a.load();
 }
 /* verse position for the status bar: chapter-relative in single-verse mode ("16 / 36"),
    passage-local in chapter/multi-verse mode. */
