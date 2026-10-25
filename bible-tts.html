@@ -403,6 +403,7 @@ function render(){
   els.verses.style.display="block";
   els.play.disabled = !cur.verses.length;
   els.whole.classList.toggle("on", cur.mode==="chapter");
+  if(!caching) els.cacheBtn.textContent = "⚡ Cache chapter";   // fresh passage = fresh state
   buildList();
   const act = els.list.querySelector(".book.active"); if(act) act.scrollIntoView({block:"nearest"});
   localStorage.setItem("hb.last", els.title.textContent);
@@ -476,8 +477,7 @@ els.cacheBtn.onclick = ()=>{
       els.cacheBtn.textContent = `⚡ ${i+1}/${passage.verses.length}`;
     }
     if(!job.gen && cur===passage){
-      caching=null; els.cacheBtn.textContent = "✓ Cached";
-      setTimeout(()=>{ if(!caching) els.cacheBtn.textContent = "⚡ Cache chapter"; }, 2500);
+      caching=null; els.cacheBtn.textContent = "✓ Cached";   // stays until you navigate away
     }
   })();
 };
