@@ -319,7 +319,8 @@ els.list.addEventListener("click", async ev=>{
 /* ── fetching ── */
 async function fetchJson(url){
   // prefer the local narrator server's proxy when it's up (no rate limit, on-disk cache)
-  if(srvOk && url.startsWith(API + "/")) url = SRV + "/api/" + url.slice(API.length + 1) + (url.includes("?") ? "&" : "?") + kq().slice(1);
+  // use server's /api proxy only when a key is set (otherwise 401s; fall back to direct API)
+  if(srvOk && SRVKEY && url.startsWith(API + "/")) url = SRV + "/api/" + url.slice(API.length + 1) + (url.includes("?") ? "&" : "?") + kq().slice(1);
   let r;
   try{
     r = await fetch(url, {signal: AbortSignal.timeout(12000)});
@@ -502,7 +503,8 @@ function copy(t){ navigator.clipboard.writeText(t).then(()=>toast("Copied ✓"))
    Narrator priority: local free neural server (edge-tts, http://127.0.0.1:8747)
    -> browser speechSynthesis fallback. */
 const synth = window.speechSynthesis;
-const SRV = localStorage.getItem("hb.srv") || "http://127.0.0.1:8747";
+// served over http(s)? talk to our own origin. opened as a file? use the local launcher.
+const SRV = localStorage.getItem("hb.srv") || (location.protocol.startsWith("http") ? location.origin : "http://127.0.0.1:8747");
 const SRVKEY = localStorage.getItem("hb.srvkey") || ""
 const kq = () => SRVKEY ? "&key="+encodeURIComponent(SRVKEY) : "";
 let srvOk = false, voices = [], audioEl = new Audio();
@@ -518,6 +520,7 @@ audioEl.addEventListener("ended", ()=>{ if(tts.playing) scheduleAdvance(); });
   }catch(e){ srvOk = false; }
   if(srvOk) loadServerVoices();
   fillVoices();
+  if(srvOk && !SRVKEY && location.protocol==="https:") toast("Click ⚙ and paste the access key to unlock neural voices.");
 })();
 
 async function loadServerVoices(){
