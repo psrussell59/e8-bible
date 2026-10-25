@@ -191,6 +191,12 @@ footer a{color:var(--x-acc);text-decoration:none}
 </div>
 
 <script>
+// narrator access key; the hosting server replaces the placeholder with its HB_TOKEN.
+// plain files / local server leave it as "" -> no default key.
+var HB_DEFAULT_KEY = "__HB_KEY__";
+if (HB_DEFAULT_KEY === "__HB_KEY__") HB_DEFAULT_KEY = "";
+</script>
+<script>
 "use strict";
 const API = "https://bible-api.com";
 const TR = [
@@ -528,7 +534,9 @@ function copy(t){ navigator.clipboard.writeText(t).then(()=>toast("Copied ✓"))
 const synth = window.speechSynthesis;
 // served over http(s)? talk to our own origin. opened as a file? use the local launcher.
 const SRV = localStorage.getItem("hb.srv") || (location.protocol.startsWith("http") ? location.origin : "http://127.0.0.1:8747");
-const SRVKEY = localStorage.getItem("hb.srvkey") || ""
+// key priority: per-device saved value (incl. explicit "" = disabled) > server-injected default > none
+const DEFAULT_KEY = (typeof HB_DEFAULT_KEY !== "undefined" ? HB_DEFAULT_KEY : "");
+const SRVKEY = localStorage.getItem("hb.srvkey") != null ? localStorage.getItem("hb.srvkey") : DEFAULT_KEY;
 const kq = () => SRVKEY ? "&key="+encodeURIComponent(SRVKEY) : "";
 let srvOk = false, voices = [], audioEl = new Audio();
 let bakedRate = 1;   // speed baked into the clip currently loaded from the server
@@ -778,7 +786,9 @@ setInterval(()=>{ if(synth && tts.playing && synth.speaking && !synth.paused){ s
 const cfg = { box:$("#cfgOverlay"), url:$("#cfgUrl"), key:$("#cfgKey") };
 $("#cfgBtn").onclick = ()=>{
   cfg.url.value = localStorage.getItem("hb.srv")||"";
-  cfg.key.value = localStorage.getItem("hb.srvkey")||"";
+  const saved = localStorage.getItem("hb.srvkey");
+  cfg.key.value = saved==null ? "" : saved;
+  cfg.key.placeholder = saved==null ? (DEFAULT_KEY ? "(default injected key in use)" : "(none — server audio locked)") : "";
   cfg.box.style.display="block";
 };
 $("#cfgCancel").onclick = ()=> cfg.box.style.display="none";
@@ -786,7 +796,7 @@ $("#cfgSave").onclick = ()=>{
   const u = cfg.url.value.trim().replace(/\/+$/,""), k = cfg.key.value.trim();
   if(u && !/^https?:\/\//.test(u)){ cfg.url.style.borderColor="red"; return; }
   if(u) localStorage.setItem("hb.srv",u); else localStorage.removeItem("hb.srv");
-  if(k) localStorage.setItem("hb.srvkey",k); else localStorage.removeItem("hb.srvkey");
+  localStorage.setItem("hb.srvkey",k);   // "" = explicitly disable even if a default exists
   location.reload();
 };
 $("#cfgReset").onclick = ()=>{ localStorage.removeItem("hb.srv"); localStorage.removeItem("hb.srvkey"); location.reload(); };

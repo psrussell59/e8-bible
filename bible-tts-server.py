@@ -123,7 +123,10 @@ class Handler(BaseHTTPRequestHandler):
             if p in ("/", "/index.html"):
                 try:
                     with open(HTML, "rb") as f:
-                        return self._send(200, "text/html; charset=utf-8", f.read())
+                        body = f.read()
+                    if AUTH:
+                        body = body.replace(b"__HB_KEY__", AUTH.encode(), 1)
+                    return self._send(200, "text/html; charset=utf-8", body)
                 except OSError:
                     return self._send(500, "text/plain", b"bible-tts.html not found next to this server")
 
