@@ -177,13 +177,14 @@ footer a{color:var(--x-acc);text-decoration:none}
 <div id="cfgOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:80">
   <div style="position:absolute;left:50%;top:18%;transform:translateX(-50%);width:min(420px,90vw);background:var(--x-card);border:1px solid var(--x-bd);border-radius:14px;padding:18px">
     <h3 style="margin:0 0 4px;font-size:15px">Narrator server</h3>
-    <p style="margin:0 0 12px;font-size:12px;color:var(--x-mut)">Leave default for the PC launcher. For remote hosting enter the HTTPS URL and access key.</p>
+    <p style="margin:0 0 12px;font-size:12px;color:var(--x-mut)">This device is using <b id="cfgMode">remote (built-in key)</b>. “Use local only” switches it to your PC's launcher — <span style="white-space:nowrap">Start Bible Audio.bat</span> → <span style="white-space:nowrap">http://127.0.0.1:8747</span> — with no server key.</p>
     <label style="font-size:12px;color:var(--x-mut)">Base URL</label><br>
-    <input id="cfgUrl" type="text" style="width:100%;margin:4px 0 10px" placeholder="https://bible.example.com"><br>
+    <input id="cfgUrl" type="text" style="width:100%;margin:4px 0 10px" placeholder="http://127.0.0.1:8747"><br>
     <label style="font-size:12px;color:var(--x-mut)">Access key</label><br>
-    <input id="cfgKey" type="text" style="width:100%;margin:4px 0 14px" placeholder="(from your server's HB_TOKEN)"><br>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn" id="cfgReset">Reset local</button>
+    <input id="cfgKey" type="text" style="width:100%;margin:4px 0 14px" placeholder="(blank = local mode / locked remote)"><br>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn" id="cfgLocal">🖥 Use local only</button>
+      <button class="btn" id="cfgReset">↩ Use remote default</button>
       <button class="btn" id="cfgCancel">Cancel</button>
       <button class="btn primary" id="cfgSave">Save &amp; reload</button>
     </div>
@@ -783,15 +784,26 @@ window.addEventListener("beforeunload", ()=>{ if(synth) synth.cancel(); });
 setInterval(()=>{ if(synth && tts.playing && synth.speaking && !synth.paused){ synth.pause(); synth.resume(); } }, 10000);
 
 /* ── narrator server settings dialog ── */
-const cfg = { box:$("#cfgOverlay"), url:$("#cfgUrl"), key:$("#cfgKey") };
-$("#cfgBtn").onclick = ()=>{
-  cfg.url.value = localStorage.getItem("hb.srv")||"";
-  const saved = localStorage.getItem("hb.srvkey");
-  cfg.key.value = saved==null ? "" : saved;
-  cfg.key.placeholder = saved==null ? (DEFAULT_KEY ? "(default injected key in use)" : "(none — server audio locked)") : "";
+const cfg = { box:$("#cfgOverlay"), url:$("#cfgUrl"), key:$("#cfgKey"), mode:$("#cfgMode") };
+function cfgOpen(){
+  const savedUrl = localStorage.getItem("hb.srv"), savedKey = localStorage.getItem("hb.srvkey");
+  cfg.url.value = savedUrl||"";
+  cfg.key.value = savedKey==null ? "" : savedKey;
+  const usingLocal = (savedUrl || (location.protocol.startsWith("http") ? location.origin : "http://127.0.0.1:8747")).includes("127.0.0.1");
+  const usingDefault = savedUrl==null && savedKey==null;
+  cfg.mode.textContent = usingLocal ? "local server (127.0.0.1:8747)"
+    : usingDefault ? "remote (built-in key)"
+    : savedKey==="" ? "remote, DISABLED (no key)" : "remote (custom saved settings)";
   cfg.box.style.display="block";
-};
+}
+$("#cfgBtn").onclick = cfgOpen;
 $("#cfgCancel").onclick = ()=> cfg.box.style.display="none";
+$("#cfgLocal").onclick = ()=>{                 // one-click local switch, applies immediately
+  localStorage.setItem("hb.srv","http://127.0.0.1:8747");
+  localStorage.setItem("hb.srvkey","");
+  location.reload();
+};
+$("#cfgReset").onclick = ()=>{ localStorage.removeItem("hb.srv"); localStorage.removeItem("hb.srvkey"); location.reload(); };
 $("#cfgSave").onclick = ()=>{
   const u = cfg.url.value.trim().replace(/\/+$/,""), k = cfg.key.value.trim();
   if(u && !/^https?:\/\//.test(u)){ cfg.url.style.borderColor="red"; return; }
@@ -799,7 +811,6 @@ $("#cfgSave").onclick = ()=>{
   localStorage.setItem("hb.srvkey",k);   // "" = explicitly disable even if a default exists
   location.reload();
 };
-$("#cfgReset").onclick = ()=>{ localStorage.removeItem("hb.srv"); localStorage.removeItem("hb.srvkey"); location.reload(); };
 
 /* ── boot / hash routing ── */
 (async function boot(){
