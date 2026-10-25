@@ -176,13 +176,13 @@ footer a{color:var(--x-acc);text-decoration:none}
 <div id="cfgOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:80">
   <div style="position:absolute;left:50%;top:18%;transform:translateX(-50%);width:min(420px,90vw);background:var(--x-card);border:1px solid var(--x-bd);border-radius:14px;padding:18px">
     <h3 style="margin:0 0 4px;font-size:15px">Narrator server</h3>
-    <p style="margin:0 0 12px;font-size:12px;color:var(--x-mut)">Default: https://bible.e8digitalmedia.com — enter the access key to unlock it. Or point at a local server (http://127.0.0.1:8747) for offline use.</p>
+    <p style="margin:0 0 12px;font-size:12px;color:var(--x-mut)">Leave default for the PC launcher. For remote hosting enter the HTTPS URL and access key.</p>
     <label style="font-size:12px;color:var(--x-mut)">Base URL</label><br>
     <input id="cfgUrl" type="text" style="width:100%;margin:4px 0 10px" placeholder="https://bible.example.com"><br>
     <label style="font-size:12px;color:var(--x-mut)">Access key</label><br>
     <input id="cfgKey" type="text" style="width:100%;margin:4px 0 14px" placeholder="(from your server's HB_TOKEN)"><br>
     <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn" id="cfgReset">Reset to default</button>
+      <button class="btn" id="cfgReset">Reset local</button>
       <button class="btn" id="cfgCancel">Cancel</button>
       <button class="btn primary" id="cfgSave">Save &amp; reload</button>
     </div>
@@ -319,9 +319,7 @@ els.list.addEventListener("click", async ev=>{
 /* ── fetching ── */
 async function fetchJson(url){
   // prefer the local narrator server's proxy when it's up (no rate limit, on-disk cache)
-  // route bible text through the narrator server's proxy ONLY when authenticated with a key
-  // (proxy is unauthenticated-free without key; direct API works rate-limited as fallback)
-  if(srvOk && SRVKEY && url.startsWith(API + "/")) url = SRV + "/api/" + url.slice(API.length + 1) + (url.includes("?") ? "&" : "?") + kq().slice(1);
+  if(srvOk && url.startsWith(API + "/")) url = SRV + "/api/" + url.slice(API.length + 1) + (url.includes("?") ? "&" : "?") + kq().slice(1);
   let r;
   try{
     r = await fetch(url, {signal: AbortSignal.timeout(12000)});
@@ -501,10 +499,10 @@ document.addEventListener("click", ev=>{ if(!ev.target.closest("#vmenu") && !ev.
 function copy(t){ navigator.clipboard.writeText(t).then(()=>toast("Copied ✓")).catch(()=>toast("Copy failed")); }
 
 /* ── text-to-speech ──
-   Narrator priority: remote E8 server (https://bible.e8digitalmedia.com, edge-tts)
-   -> browser speechSynthesis fallback. Override via ⚙ (e.g. local http://127.0.0.1:8747). */
+   Narrator priority: local free neural server (edge-tts, http://127.0.0.1:8747)
+   -> browser speechSynthesis fallback. */
 const synth = window.speechSynthesis;
-const SRV = localStorage.getItem("hb.srv") || "https://bible.e8digitalmedia.com";
+const SRV = localStorage.getItem("hb.srv") || "http://127.0.0.1:8747";
 const SRVKEY = localStorage.getItem("hb.srvkey") || ""
 const kq = () => SRVKEY ? "&key="+encodeURIComponent(SRVKEY) : "";
 let srvOk = false, voices = [], audioEl = new Audio();
@@ -632,7 +630,7 @@ function startTTS(fromIndex){
     if(!tts.playing) return;
     const a = audioEl;
     const alive = (tts.engine==="srv" && (!a.paused || a.readyState>0)) || (tts.engine==="brow" && synth.speaking);
-    if(!alive){ els.status.textContent=""; toast(srvOk ? "Still generating narrator audio… first play of a verse takes a moment." : "Couldn't start audio — open in Edge/Chrome, check the access key (⚙), or run Start Bible Audio.bat for local."); }
+    if(!alive){ els.status.textContent=""; toast(srvOk ? "Still generating narrator audio… first play of a verse takes a moment." : "Couldn't start audio — open in Edge/Chrome, or run Start Bible Audio.bat."); }
   }, 5000);
 }
 async function speakNext(){
@@ -671,7 +669,7 @@ async function speakNext(){
       await loadRef(ref, {silent:true});
       if(cur && cur.rawRef === ref && cur.mode==="passage" && cont){ tts.qi=0; return speakNext(); }
       if(!cont) return endTTS("Done ✓");
-      return endTTS("Stopped — couldn't load "+ref+". Check the narrator server / access key (⚙).");
+      return endTTS("Stopped — couldn't load "+ref+". Is the narrator server running? (Start Bible Audio.bat)");
     }
     return endTTS("Done ✓");
   }

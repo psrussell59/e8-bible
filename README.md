@@ -10,14 +10,11 @@ Free Bible reader + neural narrator. No accounts, no keys, no cost.
 - `bible-data-cache/` — cached bible-api.com JSON (bypasses the 15 req/30s rate limit)
 
 ## Run
-Just open **https://bible.e8digitalmedia.com** — the hosted narrator serves the app, neural
-audio, and a rate-limit-free text proxy. First visit: click ⚙ (top right) and paste the
-access key (server file `/root/e8-token.txt`, after `TOKEN=`) to unlock narration.
-
-Alternative modes:
-- **Windows local:** double-click **Start Bible Audio.bat**, open `http://127.0.0.1:8747`, and set ⚙ → Base URL `http://127.0.0.1:8747`, key blank → Save.
-- **macOS / Linux:** run **start-bible-audio.command**, same local URL + ⚙ setting.
-- **No server at all:** open `bible-tts.html` directly — browser voices as fallback.
+- **Windows:** double-click **Start Bible Audio.bat**, then use `http://127.0.0.1:8747` in Edge/Chrome.
+- **macOS / Linux:** run **start-bible-audio.command** (double-click on Mac; first time may need
+  `chmod +x` or right-click → Open). Then open `http://127.0.0.1:8747` in Safari/Chrome.
+- Without the server, open `bible-tts.html` directly — it falls back to browser voices
+  (Safari's voices are decent but the neural narrator needs the server).
 
 Requires: `uv` (https://docs.astral.sh/uv/) — edge-tts installs itself on first run.
 
